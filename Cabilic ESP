@@ -793,8 +793,8 @@ local startSize
 local MIN_WIDTH = 350
 local MIN_HEIGHT = 270
 
-local MAX_WIDTH = 850
-local MAX_HEIGHT = 650
+local MAX_WIDTH = 800
+local MAX_HEIGHT = 600
 
 ResizeHandle.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1

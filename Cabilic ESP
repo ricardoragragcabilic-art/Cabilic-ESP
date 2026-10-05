@@ -672,7 +672,7 @@ OpenButton.Name = "OpenButton"
 OpenButton.Size = UDim2.fromOffset(50, 50)
 OpenButton.Position = UDim2.new(0, 15, 0.5, -25)
 OpenButton.BackgroundColor3 = ESPColor
-OpenButton.Text = "🐱"
+OpenButton.Text = "😸"
 OpenButton.TextColor3 = Color3.new(1, 1, 1)
 OpenButton.TextSize = 21
 OpenButton.Font = Enum.Font.GothamBold
@@ -703,7 +703,7 @@ OpenButton.Name = "OpenButton"
 OpenButton.Size = UDim2.fromOffset(50, 50)
 OpenButton.Position = UDim2.new(0, 15, 0.5, -25)
 OpenButton.BackgroundColor3 = ESPColor
-OpenButton.Text = "🐱"
+OpenButton.Text = "😿"
 OpenButton.TextColor3 = Color3.new(1, 1, 1)
 OpenButton.TextSize = 21
 OpenButton.Font = Enum.Font.GothamBold
@@ -793,8 +793,8 @@ local startSize
 local MIN_WIDTH = 350
 local MIN_HEIGHT = 270
 
-local MAX_WIDTH = 800
-local MAX_HEIGHT = 600
+local MAX_WIDTH = 750
+local MAX_HEIGHT = 550
 
 ResizeHandle.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1

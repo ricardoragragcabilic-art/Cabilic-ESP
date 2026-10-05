@@ -1,0 +1,589 @@
+--[[
+    Cabilic ESP - Ultimate Roblox Script for Delta Executor
+    Features:
+    - Select specific players to ESP (multi-select)
+    - Teleport to selected player
+    - Speed Boost
+    - Jump Boost
+    - Invisibility
+    - Anti-AFK
+    - FPS Boost
+    - Reduce Effects for Low End Devices
+    - Anti-Cheat Protection
+    - Compact UI Design
+]]
+
+-- Services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local CoreGui = game:GetService("CoreGui")
+local StarterGui = game:GetService("StarterGui")
+local Lighting = game:GetService("Lighting")
+local UserInputService = game:GetService("UserInputService")
+local VirtualUser = game:GetService("VirtualUser")
+
+-- Variables
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+local ESPEnabled = false
+local SelectedPlayers = {}
+local ESPObjects = {}
+local SpeedEnabled = false
+local JumpEnabled = false
+local InvisibleEnabled = false
+local TeleportEnabled = false
+local SpeedValue = 50
+local JumpValue = 50
+local ESPColor = Color3.fromRGB(255, 150, 0)
+local AntiCheatEnabled = false
+local FPSBoostEnabled = false
+local AntiAFKEnabled = false
+
+-- Wait for game to load
+wait(1)
+
+-- Anti-Cheat Protection
+local function AntiCheat()
+    local oldNamecall
+    oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
+        local args = {...}
+        local method = getnamecallmethod()
+        
+        if method == "Teleport" and self == LocalPlayer then
+            return
+        end
+        
+        if method == "Kick" then
+            return
+        end
+        
+        return oldNamecall(self, ...)
+    end))
+    
+    AntiCheatEnabled = true
+end
+
+-- FPS Boost
+local function FPSBoost()
+    Lighting.GlobalShadows = false
+    Lighting.FogEnd = 100000
+    
+    local quality = game:GetService("Workspace")
+    quality:WaitForChild("Terrain"):Clear()
+    
+    settings():GetService("RenderSettings").QualityLevel = 1
+    
+    for _, v in pairs(workspace:GetDescendants()) do
+        if v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Beam") then
+            v.Enabled = false
+        end
+    end
+    
+    FPSBoostEnabled = true
+end
+
+-- Anti-AFK
+local function AntiAFK()
+    game:GetService("Players").LocalPlayer.Idled:Connect(function()
+        VirtualUser:CaptureController()
+        VirtualUser:ClickButton2(Vector2.new())
+    end)
+    
+    spawn(function()
+        while wait(30) do
+            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+                LocalPlayer.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Running)
+            end
+        end
+    end)
+    
+    AntiAFKEnabled = true
+end
+
+-- Create UI
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "CabilicESP_UI"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.DisplayOrder = 999
+
+-- Try to parent to CoreGui, if fails use PlayerGui
+local success, err = pcall(function()
+    ScreenGui.Parent = CoreGui
+end)
+if not success then
+    ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+end
+
+-- Main Frame (Compact size)
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 400, 0, 225) -- Half of original 800x450
+MainFrame.Position = UDim2.new(0.5, -200, 0.5, -112)
+MainFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+MainFrame.BackgroundTransparency = 0.05
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Parent = ScreenGui
+
+-- UI Corner
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 8)
+UICorner.Parent = MainFrame
+
+-- UI Stroke
+local UIStroke = Instance.new("UIStroke")
+UIStroke.Thickness = 1
+UIStroke.Color = Color3.fromRGB(255, 150, 0)
+UIStroke.Transparency = 0.3
+UIStroke.Parent = MainFrame
+
+-- Title Bar
+local TitleBar = Instance.new("Frame")
+TitleBar.Size = UDim2.new(1, 0, 0, 25)
+TitleBar.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+TitleBar.BorderSizePixel = 0
+TitleBar.Parent = MainFrame
+
+local UICorner_Title = Instance.new("UICorner")
+UICorner_Title.CornerRadius = UDim.new(0, 8)
+UICorner_Title.Parent = TitleBar
+
+-- Cat Icon
+local CatIcon = Instance.new("TextLabel")
+CatIcon.Size = UDim2.new(0, 20, 0, 20)
+CatIcon.Position = UDim2.new(0, 5, 0, 2)
+CatIcon.BackgroundTransparency = 1
+CatIcon.Text = "🐱"
+CatIcon.TextColor3 = Color3.fromRGB(255, 150, 0)
+CatIcon.TextSize = 12
+CatIcon.Font = Enum.Font.GothamBold
+CatIcon.Parent = TitleBar
+
+local TitleLabel = Instance.new("TextLabel")
+TitleLabel.Size = UDim2.new(0.7, 0, 1, 0)
+TitleLabel.Position = UDim2.new(0, 28, 0, 0)
+TitleLabel.BackgroundTransparency = 1
+TitleLabel.Text = "Cabilic ESP"
+TitleLabel.TextColor3 = Color3.fromRGB(255, 150, 0)
+TitleLabel.TextSize = 10
+TitleLabel.Font = Enum.Font.GothamBold
+TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+TitleLabel.Parent = TitleBar
+
+-- Hide Button
+local HideButton = Instance.new("TextButton")
+HideButton.Size = UDim2.new(0, 15, 0, 15)
+HideButton.Position = UDim2.new(1, -20, 0, 5)
+HideButton.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+HideButton.BackgroundTransparency = 0.2
+HideButton.Text = "✕"
+HideButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+HideButton.TextSize = 8
+HideButton.Font = Enum.Font.GothamBold
+HideButton.Parent = TitleBar
+
+local UICorner_Hide = Instance.new("UICorner")
+UICorner_Hide.CornerRadius = UDim.new(0, 4)
+UICorner_Hide.Parent = HideButton
+
+-- Content Area
+local ContentFrame = Instance.new("Frame")
+ContentFrame.Size = UDim2.new(1, -10, 1, -30)
+ContentFrame.Position = UDim2.new(0, 5, 0, 28)
+ContentFrame.BackgroundTransparency = 1
+ContentFrame.Parent = MainFrame
+
+-- Left Panel (Player Selection)
+local LeftPanel = Instance.new("Frame")
+LeftPanel.Size = UDim2.new(0.35, -5, 1, 0)
+LeftPanel.BackgroundTransparency = 1
+LeftPanel.Parent = ContentFrame
+
+-- Player Selection Label
+local PlayerLabel = Instance.new("TextLabel")
+PlayerLabel.Size = UDim2.new(1, 0, 0, 10)
+PlayerLabel.Position = UDim2.new(0, 0, 0, 0)
+PlayerLabel.BackgroundTransparency = 1
+PlayerLabel.Text = "🐱 PLAYERS"
+PlayerLabel.TextColor3 = Color3.fromRGB(255, 150, 0)
+PlayerLabel.TextSize = 7
+PlayerLabel.Font = Enum.Font.GothamBold
+PlayerLabel.TextXAlignment = Enum.TextXAlignment.Left
+PlayerLabel.Parent = LeftPanel
+
+-- Player List
+local PlayerList = Instance.new("ScrollingFrame")
+PlayerList.Size = UDim2.new(1, 0, 1, -15)
+PlayerList.Position = UDim2.new(0, 0, 0, 12)
+PlayerList.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+PlayerList.BackgroundTransparency = 0.2
+PlayerList.CanvasSize = UDim2.new(0, 0, 0, 0)
+PlayerList.ScrollBarThickness = 3
+PlayerList.ScrollBarImageColor3 = Color3.fromRGB(255, 150, 0)
+PlayerList.AutomaticCanvasSize = Enum.AutomaticSize.Y
+PlayerList.Parent = LeftPanel
+
+local UICorner_List = Instance.new("UICorner")
+UICorner_List.CornerRadius = UDim.new(0, 4)
+UICorner_List.Parent = PlayerList
+
+-- Middle Panel (Features)
+local MiddlePanel = Instance.new("Frame")
+MiddlePanel.Size = UDim2.new(0.35, -5, 1, 0)
+MiddlePanel.Position = UDim2.new(0.35, 5, 0, 0)
+MiddlePanel.BackgroundTransparency = 1
+MiddlePanel.Parent = ContentFrame
+
+-- Feature Buttons (Smaller)
+local buttonY = 0
+local buttonHeight = 18
+local buttonSpacing = 22
+
+-- ESP Toggle
+local ESPToggle = Instance.new("TextButton")
+ESPToggle.Size = UDim2.new(1, 0, 0, buttonHeight)
+ESPToggle.Position = UDim2.new(0, 0, 0, buttonY)
+ESPToggle.BackgroundColor3 = Color3.fromRGB(255, 150, 0)
+ESPToggle.BackgroundTransparency = 0.2
+ESPToggle.Text = "ESP: OFF"
+ESPToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+ESPToggle.TextSize = 7
+ESPToggle.Font = Enum.Font.GothamBold
+ESPToggle.Parent = MiddlePanel
+
+local UICorner_ESP = Instance.new("UICorner")
+UICorner_ESP.CornerRadius = UDim.new(0, 4)
+UICorner_ESP.Parent = ESPToggle
+
+buttonY = buttonY + buttonSpacing
+
+-- Speed Boost Toggle
+local SpeedToggle = Instance.new("TextButton")
+SpeedToggle.Size = UDim2.new(1, 0, 0, buttonHeight)
+SpeedToggle.Position = UDim2.new(0, 0, 0, buttonY)
+SpeedToggle.BackgroundColor3 = Color3.fromRGB(255, 150, 0)
+SpeedToggle.BackgroundTransparency = 0.2
+SpeedToggle.Text = "Speed: OFF"
+SpeedToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+SpeedToggle.TextSize = 7
+SpeedToggle.Font = Enum.Font.GothamBold
+SpeedToggle.Parent = MiddlePanel
+
+local UICorner_Speed = Instance.new("UICorner")
+UICorner_Speed.CornerRadius = UDim.new(0, 4)
+UICorner_Speed.Parent = SpeedToggle
+
+buttonY = buttonY + buttonSpacing
+
+-- Jump Boost Toggle
+local JumpToggle = Instance.new("TextButton")
+JumpToggle.Size = UDim2.new(1, 0, 0, buttonHeight)
+JumpToggle.Position = UDim2.new(0, 0, 0, buttonY)
+JumpToggle.BackgroundColor3 = Color3.fromRGB(255, 150, 0)
+JumpToggle.BackgroundTransparency = 0.2
+JumpToggle.Text = "Jump: OFF"
+JumpToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+JumpToggle.TextSize = 7
+JumpToggle.Font = Enum.Font.GothamBold
+JumpToggle.Parent = MiddlePanel
+
+local UICorner_Jump = Instance.new("UICorner")
+UICorner_Jump.CornerRadius = UDim.new(0, 4)
+UICorner_Jump.Parent = JumpToggle
+
+buttonY = buttonY + buttonSpacing
+
+-- Invisibility Toggle
+local InvisibleToggle = Instance.new("TextButton")
+InvisibleToggle.Size = UDim2.new(1, 0, 0, buttonHeight)
+InvisibleToggle.Position = UDim2.new(0, 0, 0, buttonY)
+InvisibleToggle.BackgroundColor3 = Color3.fromRGB(255, 150, 0)
+InvisibleToggle.BackgroundTransparency = 0.2
+InvisibleToggle.Text = "Invis: OFF"
+InvisibleToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+InvisibleToggle.TextSize = 7
+InvisibleToggle.Font = Enum.Font.GothamBold
+InvisibleToggle.Parent = MiddlePanel
+
+local UICorner_Invisible = Instance.new("UICorner")
+UICorner_Invisible.CornerRadius = UDim.new(0, 4)
+UICorner_Invisible.Parent = InvisibleToggle
+
+buttonY = buttonY + buttonSpacing
+
+-- Teleport Toggle
+local TeleportToggle = Instance.new("TextButton")
+TeleportToggle.Size = UDim2.new(1, 0, 0, buttonHeight)
+TeleportToggle.Position = UDim2.new(0, 0, 0, buttonY)
+TeleportToggle.BackgroundColor3 = Color3.fromRGB(255, 150, 0)
+TeleportToggle.BackgroundTransparency = 0.2
+TeleportToggle.Text = "Teleport: OFF"
+TeleportToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+TeleportToggle.TextSize = 7
+TeleportToggle.Font = Enum.Font.GothamBold
+TeleportToggle.Parent = MiddlePanel
+
+local UICorner_Teleport = Instance.new("UICorner")
+UICorner_Teleport.CornerRadius = UDim.new(0, 4)
+UICorner_Teleport.Parent = TeleportToggle
+
+buttonY = buttonY + buttonSpacing
+
+-- Anti-AFK Toggle
+local AntiAFKToggle = Instance.new("TextButton")
+AntiAFKToggle.Size = UDim2.new(1, 0, 0, buttonHeight)
+AntiAFKToggle.Position = UDim2.new(0, 0, 0, buttonY)
+AntiAFKToggle.BackgroundColor3 = Color3.fromRGB(255, 150, 0)
+AntiAFKToggle.BackgroundTransparency = 0.2
+AntiAFKToggle.Text = "AFK: OFF"
+AntiAFKToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+AntiAFKToggle.TextSize = 7
+AntiAFKToggle.Font = Enum.Font.GothamBold
+AntiAFKToggle.Parent = MiddlePanel
+
+local UICorner_AFK = Instance.new("UICorner")
+UICorner_AFK.CornerRadius = UDim.new(0, 4)
+UICorner_AFK.Parent = AntiAFKToggle
+
+buttonY = buttonY + buttonSpacing
+
+-- FPS Boost Toggle
+local FPSBoostToggle = Instance.new("TextButton")
+FPSBoostToggle.Size = UDim2.new(1, 0, 0, buttonHeight)
+FPSBoostToggle.Position = UDim2.new(0, 0, 0, buttonY)
+FPSBoostToggle.BackgroundColor3 = Color3.fromRGB(255, 150, 0)
+FPSBoostToggle.BackgroundTransparency = 0.2
+FPSBoostToggle.Text = "FPS: OFF"
+FPSBoostToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+FPSBoostToggle.TextSize = 7
+FPSBoostToggle.Font = Enum.Font.GothamBold
+FPSBoostToggle.Parent = MiddlePanel
+
+local UICorner_FPS = Instance.new("UICorner")
+UICorner_FPS.CornerRadius = UDim.new(0, 4)
+UICorner_FPS.Parent = FPSBoostToggle
+
+buttonY = buttonY + buttonSpacing
+
+-- Anti-Cheat Toggle
+local AntiCheatToggle = Instance.new("TextButton")
+AntiCheatToggle.Size = UDim2.new(1, 0, 0, buttonHeight)
+AntiCheatToggle.Position = UDim2.new(0, 0, 0, buttonY)
+AntiCheatToggle.BackgroundColor3 = Color3.fromRGB(255, 150, 0)
+AntiCheatToggle.BackgroundTransparency = 0.2
+AntiCheatToggle.Text = "AntiCheat: OFF"
+AntiCheatToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+AntiCheatToggle.TextSize = 7
+AntiCheatToggle.Font = Enum.Font.GothamBold
+AntiCheatToggle.Parent = MiddlePanel
+
+local UICorner_AC = Instance.new("UICorner")
+UICorner_AC.CornerRadius = UDim.new(0, 4)
+UICorner_AC.Parent = AntiCheatToggle
+
+-- Right Panel (Colors & Info)
+local RightPanel = Instance.new("Frame")
+RightPanel.Size = UDim2.new(0.3, -5, 1, 0)
+RightPanel.Position = UDim2.new(0.7, 5, 0, 0)
+RightPanel.BackgroundTransparency = 1
+RightPanel.Parent = ContentFrame
+
+-- Color Selection
+local ColorLabel = Instance.new("TextLabel")
+ColorLabel.Size = UDim2.new(1, 0, 0, 10)
+ColorLabel.Position = UDim2.new(0, 0, 0, 0)
+ColorLabel.BackgroundTransparency = 1
+ColorLabel.Text = "🐱 COLOR:"
+ColorLabel.TextColor3 = Color3.fromRGB(255, 150, 0)
+ColorLabel.TextSize = 7
+ColorLabel.Font = Enum.Font.GothamBold
+ColorLabel.TextXAlignment = Enum.TextXAlignment.Left
+ColorLabel.Parent = RightPanel
+
+-- Color Buttons (Smaller)
+local Colors = {
+    {Name = "Red", Color = Color3.fromRGB(255, 50, 50)},
+    {Name = "Green", Color = Color3.fromRGB(50, 255, 50)},
+    {Name = "Blue", Color = Color3.fromRGB(50, 50, 255)},
+    {Name = "Yellow", Color = Color3.fromRGB(255, 255, 50)},
+    {Name = "Purple", Color = Color3.fromRGB(255, 50, 255)},
+    {Name = "Cyan", Color = Color3.fromRGB(50, 255, 255)}
+}
+
+local ColorButtons = {}
+for i, colorData in ipairs(Colors) do
+    local ColorButton = Instance.new("TextButton")
+    ColorButton.Size = UDim2.new(0, 15, 0, 10)
+    ColorButton.Position = UDim2.new(0, (i - 1) * 18, 0, 12)
+    ColorButton.BackgroundColor3 = colorData.Color
+    ColorButton.BackgroundTransparency = 0.2
+    ColorButton.Text = ""
+    ColorButton.Parent = RightPanel
+    
+    local UICorner_Color = Instance.new("UICorner")
+    UICorner_Color.CornerRadius = UDim.new(0, 2)
+    UICorner_Color.Parent = ColorButton
+    
+    ColorButtons[colorData.Name] = ColorButton
+    
+    ColorButton.MouseButton1Click:Connect(function()
+        ESPColor = colorData.Color
+        for _, espData in pairs(ESPObjects) do
+            if espData.NameLabel then
+                espData.NameLabel.TextColor3 = ESPColor
+            end
+        end
+    end)
+end
+
+-- Selected Players Counter
+local SelectedCountLabel = Instance.new("TextLabel")
+SelectedCountLabel.Size = UDim2.new(1, 0, 0, 10)
+SelectedCountLabel.Position = UDim2.new(0, 0, 0, 75)
+SelectedCountLabel.BackgroundTransparency = 1
+SelectedCountLabel.Text = "Sel: 0"
+SelectedCountLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+SelectedCountLabel.TextSize = 7
+SelectedCountLabel.Font = Enum.Font.GothamMedium
+SelectedCountLabel.TextXAlignment = Enum.TextXAlignment.Left
+SelectedCountLabel.Parent = RightPanel
+
+-- Teleport Button
+local TeleportButton = Instance.new("TextButton")
+TeleportButton.Size = UDim2.new(1, 0, 0, 18)
+TeleportButton.Position = UDim2.new(0, 0, 0, 90)
+TeleportButton.BackgroundColor3 = Color3.fromRGB(255, 150, 0)
+TeleportButton.BackgroundTransparency = 0.2
+TeleportButton.Text = "🐱 TP"
+TeleportButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+TeleportButton.TextSize = 7
+TeleportButton.Font = Enum.Font.GothamBold
+TeleportButton.Parent = RightPanel
+
+local UICorner_TP = Instance.new("UICorner")
+UICorner_TP.CornerRadius = UDim.new(0, 4)
+UICorner_TP.Parent = TeleportButton
+
+-- Teleport to first selected player
+TeleportButton.MouseButton1Click:Connect(function()
+    for player in pairs(SelectedPlayers) do
+        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                LocalPlayer.Character.HumanoidRootPart.CFrame = player.Character.HumanoidRootPart.CFrame * CFrame.new(0, 5, 0)
+                pcall(function()
+                    StarterGui:SetCore("SendNotification", {
+                        Title = "Cabilic ESP",
+                        Text = "Teleported to " .. player.Name .. "! 🐱",
+                        Duration = 2
+                    })
+                end)
+                break
+            end
+        end
+    end
+end)
+
+-- Function to refresh player list
+function RefreshPlayerList()
+    for _, child in pairs(PlayerList:GetChildren()) do
+        if child:IsA("TextButton") then
+            child:Destroy()
+        end
+    end
+    
+    local yOffset = 0
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            local PlayerButton = Instance.new("TextButton")
+            PlayerButton.Size = UDim2.new(1, -10, 0, 15)
+            PlayerButton.Position = UDim2.new(0, 5, 0, yOffset)
+            PlayerButton.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+            PlayerButton.BackgroundTransparency = 0.3
+            PlayerButton.Text = player.Name
+            PlayerButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+            PlayerButton.TextSize = 7
+            PlayerButton.Font = Enum.Font.GothamMedium
+            PlayerButton.Parent = PlayerList
+            
+            local UICorner_Player = Instance.new("UICorner")
+            UICorner_Player.CornerRadius = UDim.new(0, 3)
+            UICorner_Player.Parent = PlayerButton
+            
+            if SelectedPlayers[player] then
+                PlayerButton.BackgroundColor3 = Color3.fromRGB(255, 150, 0)
+                PlayerButton.TextColor3 = Color3.fromRGB(0, 0, 0)
+            end
+            
+            PlayerButton.MouseButton1Click:Connect(function()
+                if SelectedPlayers[player] then
+                    SelectedPlayers[player] = nil
+                    PlayerButton.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+                    PlayerButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+                else
+                    SelectedPlayers[player] = true
+                    PlayerButton.BackgroundColor3 = Color3.fromRGB(255, 150, 0)
+                    PlayerButton.TextColor3 = Color3.fromRGB(0, 0, 0)
+                end
+                
+                local count = 0
+                for _ in pairs(SelectedPlayers) do count = count + 1 end
+                SelectedCountLabel.Text = "Sel: " .. count
+                
+                if ESPEnabled then
+                    if SelectedPlayers[player] then
+                        CreateESP(player)
+                    else
+                        RemoveESP(player)
+                    end
+                end
+            end)
+            
+            yOffset = yOffset + 18
+        end
+    end
+    
+    PlayerList.CanvasSize = UDim2.new(0, 0, 0, yOffset)
+end
+
+-- Toggle functions
+ESPToggle.MouseButton1Click:Connect(function()
+    ESPEnabled = not ESPEnabled
+    if ESPEnabled then
+        ESPToggle.Text = "ESP: ON"
+        ESPToggle.BackgroundColor3 = Color3.fromRGB(0, 255, 100)
+        for player in pairs(SelectedPlayers) do
+            CreateESP(player)
+        end
+    else
+        ESPToggle.Text = "ESP: OFF"
+        ESPToggle.BackgroundColor3 = Color3.fromRGB(255, 150, 0)
+        ClearESP()
+    end
+end)
+
+SpeedToggle.MouseButton1Click:Connect(function()
+    SpeedEnabled = not SpeedEnabled
+    if SpeedEnabled then
+        SpeedToggle.Text = "Speed: ON"
+        SpeedToggle.BackgroundColor3 = Color3.fromRGB(0, 255, 100)
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+            LocalPlayer.Character.Humanoid.WalkSpeed = SpeedValue
+        end
+    else
+        SpeedToggle.Text = "Speed: OFF"
+        SpeedToggle.BackgroundColor3 = Color3.fromRGB(255, 150, 0)
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+            LocalPlayer.Character.Humanoid.WalkSpeed = 16
+        end
+    end
+end)
+
+JumpToggle.MouseButton1Click:Connect(function()
+    JumpEnabled = not JumpEnabled
+    if JumpEnabled then
+        JumpToggle.Text = "Jump: ON"
+        JumpToggle.BackgroundColor3 = Color3.fromRGB(0, 255, 100)
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild
